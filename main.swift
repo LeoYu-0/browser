@@ -93,13 +93,13 @@ func buildShortcuts() -> [Shortcut] {
     }
 }
 
-// 离线扫雷卡片：仅断网时显示
+// 内置扫雷：入口藏在设置页里（不再占用首页卡片）
 let minesweeperShortcut = Shortcut(title: "扫雷", url: "mine://offline", emoji: "💣", color: NSColor(calibratedRed: 0.55, green: 0.55, blue: 0.60, alpha: 1.0))
 
 // 下载目录入口卡片
 let downloadShortcut = Shortcut(title: "下载", url: "download://open", emoji: "⬇️", color: NSColor(calibratedRed: 0.30, green: 0.65, blue: 0.45, alpha: 1.0))
 
-let appVersion = "v1.0.0"
+let appVersion = "v1.0.1"
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
@@ -413,13 +413,21 @@ final class BrowserViewController: NSViewController, WKNavigationDelegate, WKUID
         homeView.wantsLayer = true
         homeView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
 
-        // 公告横幅
-        let announcement = NSTextField(labelWithString: "📢 最新版本可在 GitHub 下载")
+        // 公告横幅（可点击，跳转 GitHub）
+        let announcement = NSTextField(labelWithString: "📢 最新版本可在 GitHub 下载（点击打开）")
         announcement.translatesAutoresizingMaskIntoConstraints = false
         announcement.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        announcement.textColor = NSColor.secondaryLabelColor
+        announcement.textColor = NSColor.systemBlue
         announcement.alignment = .center
+        announcement.isSelectable = false
         homeView.addSubview(announcement)
+
+        // 点击公告 → 打开 GitHub 仓库
+        let tap = NSClickGestureRecognizer(target: self, action: #selector(announcementClicked))
+        announcement.addGestureRecognizer(tap)
+
+        // 让 label 能接收点击
+        announcement.wantsLayer = true
 
         let title = NSTextField(labelWithString: "快捷方式")
         title.translatesAutoresizingMaskIntoConstraints = false
@@ -570,8 +578,19 @@ final class BrowserViewController: NSViewController, WKNavigationDelegate, WKUID
         NSWorkspace.shared.open(url)
     }
 
+    // 点击公告 → 用系统默认浏览器打开 GitHub Release 页
+    @objc private func announcementClicked() {
+        if let url = URL(string: "https://github.com/LeoYu-0/browser/releases/tag/v1.0.1") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     // 打开内置的离线扫雷
     private func openOfflineMinesweeper() {
+        // 若当前没有活动标签（首页状态），先新建一个标签
+        if currentTab == nil {
+            addNewTab()
+        }
         guard let tab = currentTab else { return }
         if let url = Bundle.main.url(forResource: "扫雷2", withExtension: "html") {
             showWebView(tab)
@@ -845,13 +864,13 @@ final class BrowserViewController: NSViewController, WKNavigationDelegate, WKUID
     }
 
     private func navigate(to input: String) {
-        guard let tab = currentTab else { return }
-
-        // 输入「设置」打开设置面板
+        // 输入「设置」打开设置面板（无需已有标签）
         if input == "设置" || input.lowercased() == "settings" {
             openSettings()
             return
         }
+
+        guard let tab = currentTab else { return }
 
         var urlString = input
         if input.contains(" ") || !input.contains(".") {
@@ -895,37 +914,6 @@ final class BrowserViewController: NSViewController, WKNavigationDelegate, WKUID
         if ns.code == NSURLErrorCancelled { return }
         showErrorPage(error)
         updateNavButtons()
-
-        // 如果是网络相关错误（无网），在首页显示离线扫雷卡片
-        if isNetworkError(ns) {
-            showOfflineMinesweeperCard()
-        }
-    }
-
-    // 判断是否是无网/网络错误
-    private func isNetworkError(_ ns: NSError) -> Bool {
-        switch ns.code {
-        case NSURLErrorNotConnectedToInternet,
-             NSURLErrorNetworkConnectionLost,
-             NSURLErrorCannotFindHost,
-             NSURLErrorCannotConnectToHost,
-             NSURLErrorDNSLookupFailed,
-             NSURLErrorTimedOut,
-             NSURLErrorInternationalRoamingOff,
-             NSURLErrorDataNotAllowed:
-            return true
-        default:
-            return false
-        }
-    }
-
-    // 在首页追加离线扫雷卡片
-    private func showOfflineMinesweeperCard() {
-        var all = buildShortcuts()
-        if !all.contains(where: { $0.title == minesweeperShortcut.title }) {
-            all.append(minesweeperShortcut)
-        }
-        renderCards(all)
     }
 
     private func syncFromWebView(_ webView: WKWebView) {
@@ -1001,6 +989,9 @@ final class BrowserViewController: NSViewController, WKNavigationDelegate, WKUID
     // MARK: - 设置面板
 
     private func openSettings() {
+        if currentTab == nil {
+            addNewTab()
+        }
         guard let tab = currentTab else { return }
 
         // 确保 webView 已注册消息处理器
@@ -1095,6 +1086,11 @@ final class BrowserViewController: NSViewController, WKNavigationDelegate, WKUID
         </div>
 
         <div class="card">
+        <h2>内置扫雷</h2>
+        <button class="btn ghost" onclick="openMine()">💣 打开扫雷（离线小游戏）</button>
+        </div>
+
+        <div class="card">
         <button class="btn" onclick="save()">保存</button>
         <span id="saved" style="margin-left:12px;color:#34c759;font-size:13px;display:none;">已保存 ✓</span>
         </div>
@@ -1155,6 +1151,10 @@ final class BrowserViewController: NSViewController, WKNavigationDelegate, WKUID
             listEl.lastElementChild.querySelector('.title').focus();
         }
 
+        function openMine() {
+            window.webkit.messageHandlers.settings.postMessage({action:'mine'});
+        }
+
         function save() {
             // 过滤掉标题和链接都为空的行
             var cleaned = items.filter(function(it){ return it.title.trim() || it.url.trim(); });
@@ -1179,6 +1179,13 @@ final class BrowserViewController: NSViewController, WKNavigationDelegate, WKUID
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.name == "settings", let body = message.body as? [String: Any] else { return }
+
+        // 设置页里的「打开扫雷」按钮
+        if let action = body["action"] as? String, action == "mine" {
+            openOfflineMinesweeper()
+            return
+        }
+
         let s = SettingsStore.shared
 
         // 保存快捷方式列表
