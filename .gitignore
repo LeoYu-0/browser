@@ -1,0 +1,10 @@
+# 编译产物
+browser
+*.app/
+*.o
+
+# macOS
+.DS_Store
+
+# Xcode
+build/
