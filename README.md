@@ -7,10 +7,21 @@
 - Chrome 风格标签页（圆角、凸起、可关闭、可切换）
 - 首页快捷方式（可增删改，最多 8 个）
 - 右上角地球图标：一键打开指定网站（默认 bloxd.io，可在设置里改）
-- 内置离线扫雷（断网时可玩）
+- 内置扫雷（藏在设置页里，离线可玩）
 - 自定义搜索引擎、浏览器语言
 - 下载目录支持
 - 无痕浏览：不保存历史记录、账号、Cookie（会话结束即清空）
+
+## 安装（免管理员密码）
+
+下载 `浏览器-免密安装.dmg`，双击打开后：
+
+1. 双击里面的「安装浏览器」
+2. 弹出「安装完成 ✓」后点「打开浏览器」
+
+全程**不需要管理员密码、不需要拖拽**。应用会自动安装到 `~/Applications/浏览器.app`（用户级目录）。
+
+> 为什么是 `~/Applications` 而不是 `/Applications`？后者是系统目录，写入需要管理员密码。装到用户级目录对无管理员权限的机器（如受 MDM 管理的设备）更友好。
 
 ## 设置
 
@@ -21,25 +32,19 @@
 - 搜索引擎（`%s` 为搜索词占位符）
 - 浏览器语言
 - 下载目录
+- 内置扫雷（点「打开扫雷」进入游戏）
 
 ## 构建
 
 依赖：macOS + Xcode Command Line Tools（`swiftc`）。
 
 ```bash
-# 编译
-swiftc -O main.swift -o browser
-
-# 打包成 .app
-mkdir -p "浏览器.app/Contents/MacOS" "浏览器.app/Contents/Resources"
-cp browser "浏览器.app/Contents/MacOS/浏览器"
-cp 扫雷2.html "浏览器.app/Contents/Resources/扫雷2.html"
-cp appicon.icns "浏览器.app/Contents/Resources/appicon.icns"
-
-# 签名
-codesign --force --deep --sign - "浏览器.app"
+# 一键打包成免密安装 DMG
+installer/build.sh
 ```
+
+产物为 `浏览器-免密安装.dmg`。
 
 ## 版本
 
-v1.0.0
+v1.0.2

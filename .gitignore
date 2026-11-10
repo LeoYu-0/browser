@@ -2,6 +2,9 @@
 browser
 *.app/
 *.o
+*-bin
+*.dmg
+dmg-build/
 
 # macOS
 .DS_Store
